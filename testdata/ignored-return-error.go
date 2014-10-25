@@ -5,15 +5,33 @@ package pkg
 
 import "errors"
 
+type megaErr struct {
+	error
+}
+func (i megaErr) Error() string {
+	return "I am THE error"
+}
+
 func returnOne() error {
 	return errors.New("err")
 }
 
-func returnTwo() (int, error) {
+func returnTwo() (asd int, err error) {
 	return 0, errors.New("err")
 }
 
+// TODO: implement deep check for returned values that implement error
+func returnThree() (string, megaErr) {
+	return "", megaErr{}
+}
+
 func main() {
-	returnOne() // MATCH /unprocessed returned error/
-	a, _ := returnTwo() // MATCH /unprocessed returned error: int, error/
+	returnOne() // MATCH /function 'returnOne' returns an error, it should not be silently ignored/
+	a, _ := returnTwo() // MATCH /function 'returnTwo' returns an error, generally it should not be intentionally ignored/
+
+	if a, _ := returnTwo(); a > 0 { // MATCH /function 'returnTwo' returns an error, generally it should not be intentionally ignored/
+		doSomethingMan()
+    }
+
+	//returnThree() // TODO: see above
 }

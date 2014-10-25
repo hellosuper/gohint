@@ -90,6 +90,7 @@ func (f *file) lint() []Problem {
 	f.lintIncDec()
 	f.lintMake()
 	f.lintErrorReturn()
+	f.lintIgnoredReturn()
 
 	return f.problems
 }
@@ -1017,6 +1018,90 @@ func (f *file) lintErrorReturn() {
 		}
 		return true
 	})
+}
+
+// Check for ignored errors returned from function calls.
+// Errors can be ignored in 2 ways:
+// 1. "silently" - when no acceptor is provided for returned error
+// 2. "intentionally" - when acceptor for returned error is "_". Like: "_ := foo()"
+func (f *file) lintIgnoredReturn() {
+	f.walk(func(n ast.Node) bool {
+
+		if expr, ok := n.(*ast.ExprStmt); ok && expr.X != nil {
+			// process simple function call here, with no assignment.
+			fn := extractFuncDecl(expr.X)
+			errIndices := extractErrResultIndices(fn)
+			if len(errIndices) > 0 {
+				// check for ignored returned errors first
+				f.errorf(expr, 1.0, category("result-ignore"), "function '%s' returns an error, it should not be silently ignored", fn.Name)
+
+				return true
+			}
+
+			if fn != nil && fn.Type.Results != nil && fn.Type.Results.List != nil && len(fn.Type.Results.List) > 0 {
+				// if no returned errors, than check if there is any returned value that is ignored
+				f.errorf(expr, 0.9, category("result-ignore"), "result of '%s' should not be silently ignored", fn.Name)
+
+				return true
+			}
+		} else if asgn, ok := n.(*ast.AssignStmt); ok && asgn.Rhs != nil && len(asgn.Rhs) == 1 && asgn.Rhs[0] != nil {
+			// process only assignments with single statement on the right. Here we analyze if any returned error
+			// is ignored in statements like "a, b, c := fcall()"
+			// at the moment assignments like "a, b := b, a" are not processed
+			// TODO: do something with "a, b := f1(), f2()" and change if needed
+			fn := extractFuncDecl(asgn.Rhs[0])
+			errIndices := extractErrResultIndices(fn)
+
+			for _, i := range errIndices {
+				if i >= len(asgn.Lhs) {
+					// This is situation when number of values on their right of assignment does not match number
+					// of acceptors on left side. At the moment let's leave tis to compiler to report
+					// TODO: maybe we should scream here? Or process this situation in another kind of check?
+
+					return true
+				}
+				if ident, ok := asgn.Lhs[i].(*ast.Ident); ok && ident.Name == "_" {
+					f.errorf(asgn, 0.8, category("result-ignore"), "function '%s' returns an error, generally it should not be intentionally ignored", fn.Name)
+
+					return true
+				}
+			}
+		}
+		return true
+	})
+}
+
+// try to extract declaration of fuction from given expression node
+func extractFuncDecl(expr ast.Expr) *ast.FuncDecl {
+	if cExpr, ok := expr.(*ast.CallExpr); ok && cExpr.Fun != nil {
+		if ident, ok := cExpr.Fun.(*ast.Ident); ok && ident.Obj != nil && ident.Obj.Kind == ast.Fun && ident.Obj.Decl != nil {
+			if fDecl, ok := ident.Obj.Decl.(*ast.FuncDecl); ok && fDecl.Type != nil && fDecl.Type.Results != nil && fDecl.Type.Results.List != nil {
+				return fDecl
+			}
+		}
+	}
+
+	return nil
+}
+
+// from given function declaration extract indices of values in return result list which represent "error"
+// Example: for definition of "func foo() (error, int, string, error)" it will return [0, 3]
+func extractErrResultIndices(fn *ast.FuncDecl) (ind []int) {
+	ind = make([]int, 0)
+	if fn == nil || fn.Type.Results == nil || fn.Type.Results.List == nil {
+		return
+	}
+	for i, field := range fn.Type.Results.List {
+		if fieldIdent, ok := field.Type.(*ast.Ident); ok {
+			if fieldIdent.Obj == nil && fieldIdent.Name == "error" {
+				ind = append(ind, i)
+			} else if fieldIdent.Obj != nil && fieldIdent.Obj.Kind == ast.Typ {
+				// TODO: dig deeper to get what kind of object is it. Does it implement Error() ?
+			}
+		}
+	}
+
+	return
 }
 
 func receiverType(fn *ast.FuncDecl) string {
