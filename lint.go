@@ -45,13 +45,13 @@ func (p *Problem) String() string {
 }
 
 // Lint lints src.
-func (l *Linter) Lint(filename string, src []byte) ([]Problem, error) {
+func (l *Linter) Lint(filename string, config *Config, src []byte) ([]Problem, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", src, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
-	return (&file{fset: fset, f: f, src: src, filename: filename}).lint(), nil
+	return (&file{fset: fset, f: f, src: src, filename: filename, config: config}).lint(), nil
 }
 
 // file represents a file being linted.
@@ -67,30 +67,61 @@ type file struct {
 	main bool
 
 	problems []Problem
+
+	config *Config
 }
 
 func (f *file) isTest() bool { return strings.HasSuffix(f.filename, "_test.go") }
 
 func (f *file) lint() []Problem {
+	if f.config == nil {
+		f.config = NewDefaultConfig()
+	}
+
 	f.scanSortable()
 	f.main = f.isMain()
 
-	f.lintPackageComment()
-	f.lintImports()
-	f.lintBlankImports()
-	f.lintExported()
-	f.lintNames()
-	f.lintVarDecls()
-	f.lintElses()
+	if f.config.Package {
+		f.lintPackageComment()
+	}
+
+	if f.config.Imports {
+		f.lintImports()
+		f.lintBlankImports()
+	}
+
+	if f.config.Exported {
+		f.lintExported()
+	}
+	if f.config.Names {
+		f.lintNames()
+	}
+
+	if f.config.VarDecls {
+		f.lintVarDecls()
+	}
+
+	if f.config.Elses {
+		f.lintElses()
+	}
+
 	f.lintRanges()
+
 	f.lintErrorf()
 	f.lintErrors()
 	f.lintErrorStrings()
 	f.lintReceiverNames()
 	f.lintIncDec()
-	f.lintMake()
-	f.lintErrorReturn()
-	f.lintIgnoredReturn()
+	if f.config.MakeSlice {
+		f.lintMakeSlice()
+	}
+	if f.config.ErrorReturn {
+		f.lintErrorReturn()
+	}
+
+	if f.config.IgnoredReturn {
+		f.lintIgnoredReturn()
+	}
 
 	return f.problems
 }
@@ -225,14 +256,11 @@ func (f *file) lintBlankImports() {
 // lintImports examines import blocks.
 func (f *file) lintImports() {
 
-	for i, is := range f.f.Imports {
-		_ = i
+	for _, is := range f.f.Imports {
 		if is.Name != nil && is.Name.Name == "." && !f.isTest() {
 			f.errorf(is, 1, link(styleGuideBase+"#Import_Dot"), category("imports"), "should not use dot imports")
 		}
-
 	}
-
 }
 
 const docCommentsLink = styleGuideBase + "#Doc_Comments"
@@ -297,6 +325,7 @@ var allCapsRE = regexp.MustCompile(`^[A-Z0-9_]+$`)
 // It complains if any use underscores or incorrect known initialisms.
 func (f *file) lintNames() {
 	// Package names need slightly different handling than other names.
+	// TODO: make it optional or warning
 	if strings.Contains(f.f.Name.Name, "_") && !strings.HasSuffix(f.f.Name.Name, "_test") {
 		f.errorf(f.f, 1, link("http://golang.org/doc/effective_go.html#package-names"), category("naming"), "don't use an underscore in package name")
 	}
@@ -308,20 +337,22 @@ func (f *file) lintNames() {
 
 		// Handle two common styles from other languages that don't belong in Go.
 		if len(id.Name) >= 5 && allCapsRE.MatchString(id.Name) && strings.Contains(id.Name, "_") {
-			f.errorf(id, 0.8, link(styleGuideBase+"#Mixed_Caps"), category("naming"), "don't use ALL_CAPS in Go names; use CamelCase")
+			// TODO: make it optional
+			f.errorf(id, 0.6, link(styleGuideBase+"#Mixed_Caps"), category("naming"), "don't use ALL_CAPS in Go names; use CamelCase")
 			return
 		}
 		if len(id.Name) > 2 && id.Name[0] == 'k' && id.Name[1] >= 'A' && id.Name[1] <= 'Z' {
 			should := string(id.Name[1]+'a'-'A') + id.Name[2:]
-			f.errorf(id, 0.8, link(styleGuideBase+"#Mixed_Caps"), category("naming"), "don't use leading k in Go names; %s %s should be %s", thing, id.Name, should)
+			// TODO: why? make it optional?
+			f.errorf(id, 0.6, link(styleGuideBase+"#Mixed_Caps"), category("naming"), "don't use leading k in Go names; %s %s should be %s", thing, id.Name, should)
 		}
 
-		should := lintName(id.Name)
+		should := f.fixName(id.Name)
 		if id.Name == should {
 			return
 		}
 		if len(id.Name) > 2 && strings.Contains(id.Name[1:], "_") {
-			f.errorf(id, 0.9, link("http://golang.org/doc/effective_go.html#mixed-caps"), category("naming"), "don't use underscores in Go names; %s %s should be %s", thing, id.Name, should)
+			f.errorf(id, 0.8, link("http://golang.org/doc/effective_go.html#mixed-caps"), category("naming"), "don't use underscores in Go names; %s %s should be %s", thing, id.Name, should)
 			return
 		}
 		f.errorf(id, 0.8, link(styleGuideBase+"#Initialisms"), category("naming"), "%s %s should be %s", thing, id.Name, should)
@@ -415,8 +446,8 @@ func (f *file) lintNames() {
 	})
 }
 
-// lintName returns a different name if it should be different.
-func lintName(name string) (should string) {
+// fixName returns a different name if it should be different.
+func (f *file) fixName(name string) (should string) {
 	// Fast path for simple cases: "_" and all lowercase.
 	if name == "_" {
 		return name
@@ -460,7 +491,8 @@ func lintName(name string) (should string) {
 
 		// [w,i) is a word.
 		word := string(runes[w:i])
-		if u := strings.ToUpper(word); commonInitialisms[u] {
+		// TODO: configure initialisms here
+		if u := strings.ToUpper(word); f.config.Initialisms[u] {
 			// Keep consistent case, which is lowercase only at the start.
 			if w == 0 && unicode.IsLower(runes[w]) {
 				u = strings.ToLower(u)
@@ -475,41 +507,6 @@ func lintName(name string) (should string) {
 		w = i
 	}
 	return string(runes)
-}
-
-// commonInitialisms is a set of common initialisms.
-// Only add entries that are highly unlikely to be non-initialisms.
-// For instance, "ID" is fine (Freudian code is rare), but "AND" is not.
-var commonInitialisms = map[string]bool{
-	"API":   true,
-	"ASCII": true,
-	"CPU":   true,
-	"CSS":   true,
-	"DNS":   true,
-	"EOF":   true,
-	"HTML":  true,
-	"HTTP":  true,
-	"HTTPS": true,
-	"ID":    true,
-	"IP":    true,
-	"JSON":  true,
-	"LHS":   true,
-	"QPS":   true,
-	"RAM":   true,
-	"RHS":   true,
-	"RPC":   true,
-	"SLA":   true,
-	"SMTP":  true,
-	"SSH":   true,
-	"TLS":   true,
-	"TTL":   true,
-	"UI":    true,
-	"UID":   true,
-	"URI":   true,
-	"URL":   true,
-	"UTF8":  true,
-	"VM":    true,
-	"XML":   true,
 }
 
 // lintTypeDoc examines the doc comment on a type.
@@ -533,6 +530,7 @@ func (f *file) lintTypeDoc(t *ast.TypeSpec, doc *ast.CommentGroup) {
 		}
 	}
 	if !strings.HasPrefix(s, t.Name.Name+" ") {
+		// TODO: make it optional?
 		f.errorf(doc, 1, link(docCommentsLink), category("comments"), `comment on exported type %v should be of the form "%v ..." (with optional leading article)`, t.Name, t.Name)
 	}
 }
@@ -900,12 +898,6 @@ func (f *file) lintErrorStrings() {
 	})
 }
 
-var badReceiverNames = map[string]bool{
-	"me":   true,
-	"this": true,
-	"self": true,
-}
-
 // lintReceiverNames examines receiver names. It complains about inconsistent
 // names used for the same type and names such as "this".
 func (f *file) lintReceiverNames() {
@@ -925,7 +917,7 @@ func (f *file) lintReceiverNames() {
 			f.errorf(n, 1, link(ref), category("naming"), `receiver name should not be an underscore`)
 			return true
 		}
-		if badReceiverNames[name] {
+		if f.config.BadReceiverNames[name] {
 			f.errorf(n, 1, link(ref), category("naming"), `receiver name should be a reflection of its identity; don't use generic names such as "me", "this", or "self"`)
 			return true
 		}
@@ -967,9 +959,9 @@ func (f *file) lintIncDec() {
 	})
 }
 
-// lineMake examines statements that declare and initialize a variable with make.
+// lintMakeSlice examines statements that declare and initialize a variable with make.
 // It complains if they are constructing a zero element slice.
-func (f *file) lintMake() {
+func (f *file) lintMakeSlice() {
 	f.walk(func(n ast.Node) bool {
 		as, ok := n.(*ast.AssignStmt)
 		if !ok {
@@ -1020,7 +1012,7 @@ func (f *file) lintErrorReturn() {
 	})
 }
 
-// Check for ignored errors returned from function calls.
+// Check for ignored values returned from function calls. Ignored errors are special case.
 // Errors can be ignored in 2 ways:
 // 1. "silently" - when no acceptor is provided for returned error
 // 2. "intentionally" - when acceptor for returned error is "_". Like: "_ := foo()"

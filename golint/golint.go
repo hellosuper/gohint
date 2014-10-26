@@ -15,13 +15,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/lint"
+	"github.com/elgris/lint"
 )
 
-var minConfidence = flag.Float64("min_confidence", 0.8, "minimum confidence of a problem to print it")
+var configFile = flag.String("config", "", "path to file with config")
+var config *lint.Config
 
 func main() {
 	flag.Parse()
+
+	var err error
+	config, err = lint.NewConfig(*configFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
 
 	for _, filename := range flag.Args() {
 		if isDir(filename) {
@@ -45,13 +52,13 @@ func lintFile(filename string) {
 	}
 
 	l := new(lint.Linter)
-	ps, err := l.Lint(filename, src)
+	ps, err := l.Lint(filename, config, src)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v:%v\n", filename, err)
 		return
 	}
 	for _, p := range ps {
-		if p.Confidence >= *minConfidence {
+		if p.Confidence >= config.MinConfidence {
 			fmt.Printf("%s:%v: %s\n", filename, p.Position, p.Text)
 		}
 	}
