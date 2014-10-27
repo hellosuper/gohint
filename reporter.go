@@ -1,4 +1,4 @@
-package lint
+package hint
 
 import "fmt"
 import (

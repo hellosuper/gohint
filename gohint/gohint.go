@@ -15,30 +15,30 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/elgris/lint"
+	"github.com/elgris/hint"
 )
 
 var reporterName = flag.String("reporter", "plain", "name of reported to generate ouput. Available: plain, checkstyle")
-var configFile = flag.String("config", "", "path to file with config")
-var config *lint.Config
+var configFile = flag.String("config", "", "path to file with config. If empty or not provided, default config will be used")
+var config *hint.Config
 
-var reporter lint.Reporter
+var reporter hint.Reporter
 
 func main() {
 	flag.Parse()
 
 	switch *reporterName {
 	case "plain":
-		reporter = &lint.PlainReporter{}
+		reporter = &hint.PlainReporter{}
 	case "checkstyle":
-		reporter = lint.NewCheckstyleReporter(true)
+		reporter = hint.NewCheckstyleReporter(true)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown reporter '%s'. Available ones: plain, checkstyle\n", *reporterName)
 		return
 	}
 
 	var err error
-	config, err = lint.NewConfig(*configFile)
+	config, err = hint.NewConfig(*configFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 
@@ -74,7 +74,7 @@ func lintFile(filename string) {
 		return
 	}
 
-	l := new(lint.Linter)
+	l := new(hint.Linter)
 	ps, err := l.Lint(filename, config, src)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v:%v\n", filename, err)
