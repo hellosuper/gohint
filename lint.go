@@ -29,6 +29,7 @@ type Linter struct {
 
 // Problem represents a problem in some source code.
 type Problem struct {
+	File       string         // name of the sourcefile
 	Position   token.Position // position in source file
 	Text       string         // the prose that describes the problem
 	Link       string         // (optional) the link to the style guide for the problem
@@ -132,8 +133,13 @@ type category string
 // The variadic arguments may start with link and category types,
 // and must end with a format string and any arguments.
 func (f *file) errorf(n ast.Node, confidence float64, args ...interface{}) {
+	if confidence < f.config.MinConfidence {
+		return
+	}
+
 	p := f.fset.Position(n.Pos())
 	problem := Problem{
+		File:       f.filename,
 		Position:   p,
 		Confidence: confidence,
 		LineText:   srcLine(f.src, p),

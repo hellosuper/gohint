@@ -18,16 +18,31 @@ import (
 	"github.com/elgris/lint"
 )
 
+var reporterName = flag.String("reporter", "plain", "name of reported to generate ouput. Available: plain, checkstyle")
 var configFile = flag.String("config", "", "path to file with config")
 var config *lint.Config
 
+var reporter lint.Reporter
+
 func main() {
 	flag.Parse()
+
+	switch *reporterName {
+	case "plain":
+		reporter = &lint.PlainReporter{}
+	case "checkstyle":
+		reporter = lint.NewCheckstyleReporter(true)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown reporter '%s'. Available ones: plain, checkstyle\n", *reporterName)
+		return
+	}
 
 	var err error
 	config, err = lint.NewConfig(*configFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+
+		return
 	}
 
 	for _, filename := range flag.Args() {
@@ -37,6 +52,14 @@ func main() {
 			lintFile(filename)
 		}
 	}
+
+	report, err := reporter.Flush()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+
+		return
+	}
+	fmt.Println(report)
 }
 
 func isDir(filename string) bool {
@@ -57,11 +80,7 @@ func lintFile(filename string) {
 		fmt.Fprintf(os.Stderr, "%v:%v\n", filename, err)
 		return
 	}
-	for _, p := range ps {
-		if p.Confidence >= config.MinConfidence {
-			fmt.Printf("%s:%v: %s\n", filename, p.Position, p.Text)
-		}
-	}
+	reporter.Collect(ps)
 }
 
 func lintDir(dirname string) {

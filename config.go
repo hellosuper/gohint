@@ -38,20 +38,13 @@ var defaultCommonInitialisms = map[string]bool{
 	"XML":   true,
 }
 
-var defaultCommonMethods = map[string]bool{
-	"Error":     true,
-	"Read":      true,
-	"ServeHTTP": true,
-	"String":    true,
-	"Write":     true,
-}
-
 var defaultBadReceiverNames = map[string]bool{
 	"me":   true,
 	"this": true,
 	"self": true,
 }
 
+// Config defines configuration options for linter
 type Config struct {
 	Package       bool `json:"package"`
 	Imports       bool `json:"imports"`
@@ -78,6 +71,7 @@ type Config struct {
 	BadReceiverNames map[string]bool `json:"bad-receivers"`
 }
 
+// NewDefaultConfig creates linter config with predefined options
 func NewDefaultConfig() *Config {
 	return &Config{
 		Package:       true,
@@ -99,6 +93,8 @@ func NewDefaultConfig() *Config {
 		//		IgnoreTypes:      []string{}, // TODO: for future use
 	}
 }
+
+// NewConfig reads config from given file. If filename is empty, default config will be returned
 func NewConfig(file string) (*Config, error) {
 	c := NewDefaultConfig()
 
@@ -112,8 +108,6 @@ func NewConfig(file string) (*Config, error) {
 		if err := json.Unmarshal(contents, c); err != nil {
 			return nil, fmt.Errorf("could not parse configuration from %s: %s", file, err.Error())
 		}
-
-		fmt.Printf("after: %#v\n", defaultCommonInitialisms)
 
 		sliceToMapBool := func(slice []string) map[string]bool {
 			res := map[string]bool{}
