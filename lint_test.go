@@ -52,7 +52,9 @@ func TestAll(t *testing.T) {
 			continue
 		}
 
-		ps, err := l.Lint(fi.Name(), src)
+		config := NewDefaultConfig()
+		config.MinConfidence = 0    // do not ignore any errors because of confidence threshold
+		ps, err := l.Lint(fi.Name(), config, src)
 		if err != nil {
 			t.Errorf("Linting %s: %v", fi.Name(), err)
 			continue
@@ -188,8 +190,9 @@ func TestLintName(t *testing.T) {
 		{"a___b", "aB"},
 		{"Rpc1150", "RPC1150"},
 	}
+	f := file{config: NewDefaultConfig()}
 	for _, test := range tests {
-		got := lintName(test.name)
+		got := f.fixName(test.name)
 		if got != test.want {
 			t.Errorf("lintName(%q) = %q, want %q", test.name, got, test.want)
 		}
