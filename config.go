@@ -46,15 +46,16 @@ var defaultBadReceiverNames = map[string]bool{
 
 // Config defines configuration options for linter
 type Config struct {
-	Package       bool `json:"package"`
-	Imports       bool `json:"imports"`
-	Names         bool `json:"names"`
-	Exported      bool `json:"exported"`
-	VarDecls      bool `json:"var-decls"`
-	Elses         bool `json:"elses"`
-	MakeSlice     bool `json:"make-slice"`
-	ErrorReturn   bool `json:"error-return"`
-	IgnoredReturn bool `json:"ignored-return"`
+	Package           bool `json:"package"`
+	Imports           bool `json:"imports"`
+	Names             bool `json:"names"`
+	Exported          bool `json:"exported"`
+	VarDecls          bool `json:"var-decls"`
+	Elses             bool `json:"elses"`
+	MakeSlice         bool `json:"make-slice"`
+	ErrorReturn       bool `json:"error-return"`
+	IgnoredReturn     bool `json:"ignored-return"`
+	PackageUnderscore bool `json:"package-underscore"`
 
 	MinConfidence float64 `json:"min-confidence"`
 
@@ -74,15 +75,16 @@ type Config struct {
 // NewDefaultConfig creates linter config with predefined options
 func NewDefaultConfig() *Config {
 	return &Config{
-		Package:       true,
-		Imports:       true,
-		Names:         true,
-		Exported:      true,
-		VarDecls:      true,
-		Elses:         true,
-		MakeSlice:     true,
-		ErrorReturn:   true,
-		IgnoredReturn: true,
+		Package:           true,
+		Imports:           true,
+		Names:             true,
+		Exported:          true,
+		VarDecls:          true,
+		Elses:             true,
+		MakeSlice:         true,
+		ErrorReturn:       true,
+		IgnoredReturn:     true,
+		PackageUnderscore: true,
 
 		MinConfidence:    0.8,
 		Initialisms:      defaultCommonInitialisms,
