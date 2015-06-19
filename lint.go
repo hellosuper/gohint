@@ -92,8 +92,7 @@ func (f *file) lint() []Problem {
 	}
 
 	if f.config.Exported {
-		allowStutter := !f.config.PackagePrefixNames
-		f.lintExported(allowStutter)
+		f.lintExported(f.config.AllowPackagePrefixNames)
 	}
 	if f.config.Names {
 		f.lintNames()
@@ -125,7 +124,7 @@ func (f *file) lint() []Problem {
 		f.lintIgnoredReturn()
 	}
 
-	if f.config.NamedReturn {
+	if f.config.DisallowNamedReturn {
 		f.lintNamedReturn()
 	}
 
@@ -284,7 +283,7 @@ const docCommentsLink = styleGuideBase + "#Doc_Comments"
 // doc comments for constants to be on top of the const block.
 // It also complains if the names stutter when combined with
 // the package name.
-func (f *file) lintExported(stutter bool) {
+func (f *file) lintExported(allowPackagePrefix bool) {
 	if f.isTest() {
 		return
 	}
@@ -310,7 +309,7 @@ func (f *file) lintExported(stutter bool) {
 				thing = "method"
 			}
 
-			if stutter {
+			if !allowPackagePrefix {
 				f.checkStutter(v.Name, thing)
 			}
 			// Don't proceed inside funcs.
@@ -323,7 +322,7 @@ func (f *file) lintExported(stutter bool) {
 			}
 			f.lintTypeDoc(v, doc)
 
-			if stutter {
+			if !allowPackagePrefix {
 				f.checkStutter(v.Name, "type")
 			}
 			// Don't proceed inside types.
@@ -1123,12 +1122,12 @@ func (f *file) lintNamedReturn() {
 		}
 		ret := fn.Type.Results.List
 
-		// An error return parameter should be the last parameter.
+		i := 0
 		for _, r := range ret {
-			for varIndex, varName := range r.Names {
+			for _, varName := range r.Names {
 				if f.render(varName) != "" {
-					f.errorf(fn, 0.9, category("named-return"), "return value #%d(%q) should not be named", varIndex, varName)
-					return false
+					f.errorf(fn, 0.9, category("named-return"), "return value #%d(%q) should not be named", i, varName)
+					i += 1
 				}
 			}
 		}
