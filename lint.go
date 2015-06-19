@@ -92,7 +92,8 @@ func (f *file) lint() []Problem {
 	}
 
 	if f.config.Exported {
-		f.lintExported()
+		allowStutter := !f.config.PackagePrefixNames
+		f.lintExported(allowStutter)
 	}
 	if f.config.Names {
 		f.lintNames()
@@ -122,6 +123,10 @@ func (f *file) lint() []Problem {
 
 	if f.config.IgnoredReturn {
 		f.lintIgnoredReturn()
+	}
+
+	if f.config.NamedReturn {
+		f.lintNamedReturn()
 	}
 
 	return f.problems
@@ -279,7 +284,7 @@ const docCommentsLink = styleGuideBase + "#Doc_Comments"
 // doc comments for constants to be on top of the const block.
 // It also complains if the names stutter when combined with
 // the package name.
-func (f *file) lintExported() {
+func (f *file) lintExported(stutter bool) {
 	if f.isTest() {
 		return
 	}
@@ -304,7 +309,10 @@ func (f *file) lintExported() {
 			if v.Recv != nil {
 				thing = "method"
 			}
-			f.checkStutter(v.Name, thing)
+
+			if stutter {
+				f.checkStutter(v.Name, thing)
+			}
 			// Don't proceed inside funcs.
 			return false
 		case *ast.TypeSpec:
@@ -314,7 +322,10 @@ func (f *file) lintExported() {
 				doc = lastGen.Doc
 			}
 			f.lintTypeDoc(v, doc)
-			f.checkStutter(v.Name, "type")
+
+			if stutter {
+				f.checkStutter(v.Name, "type")
+			}
 			// Don't proceed inside types.
 			return false
 		case *ast.ValueSpec:
@@ -1100,6 +1111,29 @@ func extractErrResultIndices(fn *ast.FuncDecl) (ind []int) {
 	}
 
 	return
+}
+
+// lintNamedReturn examines function return values.
+// It complains if any return value named.
+func (f *file) lintNamedReturn() {
+	f.walk(func(n ast.Node) bool {
+		fn, ok := n.(*ast.FuncDecl)
+		if !ok || fn.Type.Results == nil {
+			return true
+		}
+		ret := fn.Type.Results.List
+
+		// An error return parameter should be the last parameter.
+		for _, r := range ret {
+			for varIndex, varName := range r.Names {
+				if f.render(varName) != "" {
+					f.errorf(fn, 0.9, category("named-return"), "return value #%d(%q) should not be named", varIndex, varName)
+					return false
+				}
+			}
+		}
+		return true
+	})
 }
 
 func receiverType(fn *ast.FuncDecl) string {

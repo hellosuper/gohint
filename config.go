@@ -46,16 +46,18 @@ var defaultBadReceiverNames = map[string]bool{
 
 // Config defines configuration options for linter
 type Config struct {
-	Package           bool `json:"package"`
-	Imports           bool `json:"imports"`
-	Names             bool `json:"names"`
-	Exported          bool `json:"exported"`
-	VarDecls          bool `json:"var-decls"`
-	Elses             bool `json:"elses"`
-	MakeSlice         bool `json:"make-slice"`
-	ErrorReturn       bool `json:"error-return"`
-	IgnoredReturn     bool `json:"ignored-return"`
-	PackageUnderscore bool `json:"package-underscore"`
+	Package            bool `json:"package"`
+	Imports            bool `json:"imports"`
+	Names              bool `json:"names"`
+	Exported           bool `json:"exported"`
+	VarDecls           bool `json:"var-decls"`
+	Elses              bool `json:"elses"`
+	MakeSlice          bool `json:"make-slice"`
+	ErrorReturn        bool `json:"error-return"`
+	IgnoredReturn      bool `json:"ignored-return"`
+	PackageUnderscore  bool `json:"package-underscore"`
+	NamedReturn        bool `json:"disallow-named-return"`
+	PackagePrefixNames bool `json:"allow-package-prefix-names"`
 
 	MinConfidence float64 `json:"min-confidence"`
 
