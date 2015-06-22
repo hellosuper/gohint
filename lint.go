@@ -92,7 +92,7 @@ func (f *file) lint() []Problem {
 	}
 
 	if f.config.Exported {
-		f.lintExported()
+		f.lintExported(f.config.PackagePrefixNames)
 	}
 	if f.config.Names {
 		f.lintNames()
@@ -122,6 +122,10 @@ func (f *file) lint() []Problem {
 
 	if f.config.IgnoredReturn {
 		f.lintIgnoredReturn()
+	}
+
+	if f.config.NamedReturn {
+		f.lintNamedReturn()
 	}
 
 	return f.problems
@@ -279,7 +283,7 @@ const docCommentsLink = styleGuideBase + "#Doc_Comments"
 // doc comments for constants to be on top of the const block.
 // It also complains if the names stutter when combined with
 // the package name.
-func (f *file) lintExported() {
+func (f *file) lintExported(allowPackagePrefix bool) {
 	if f.isTest() {
 		return
 	}
@@ -304,7 +308,10 @@ func (f *file) lintExported() {
 			if v.Recv != nil {
 				thing = "method"
 			}
-			f.checkStutter(v.Name, thing)
+
+			if !allowPackagePrefix {
+				f.checkStutter(v.Name, thing)
+			}
 			// Don't proceed inside funcs.
 			return false
 		case *ast.TypeSpec:
@@ -314,7 +321,10 @@ func (f *file) lintExported() {
 				doc = lastGen.Doc
 			}
 			f.lintTypeDoc(v, doc)
-			f.checkStutter(v.Name, "type")
+
+			if !allowPackagePrefix {
+				f.checkStutter(v.Name, "type")
+			}
 			// Don't proceed inside types.
 			return false
 		case *ast.ValueSpec:
@@ -1100,6 +1110,29 @@ func extractErrResultIndices(fn *ast.FuncDecl) (ind []int) {
 	}
 
 	return
+}
+
+// lintNamedReturn examines function return values.
+// It complains if any return value named.
+func (f *file) lintNamedReturn() {
+	f.walk(func(n ast.Node) bool {
+		fn, ok := n.(*ast.FuncDecl)
+		if !ok || fn.Type.Results == nil {
+			return true
+		}
+		ret := fn.Type.Results.List
+
+		i := 0
+		for _, r := range ret {
+			for _, varName := range r.Names {
+				if f.render(varName) != "" {
+					f.errorf(fn, 0.9, category("named-return"), "return value #%d(%q) should not be named", i, varName)
+					i += 1
+				}
+			}
+		}
+		return true
+	})
 }
 
 func receiverType(fn *ast.FuncDecl) string {
