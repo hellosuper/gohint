@@ -92,7 +92,7 @@ func (f *file) lint() []Problem {
 	}
 
 	if f.config.Exported {
-		f.lintExported(f.config.AllowPackagePrefixNames)
+		f.lintExported(f.config.PackagePrefixNames)
 	}
 	if f.config.Names {
 		f.lintNames()
@@ -124,7 +124,7 @@ func (f *file) lint() []Problem {
 		f.lintIgnoredReturn()
 	}
 
-	if f.config.DisallowNamedReturn {
+	if f.config.NamedReturn {
 		f.lintNamedReturn()
 	}
 
