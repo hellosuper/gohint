@@ -34,15 +34,14 @@ func main() {
 		reporter = hint.NewCheckstyleReporter(true)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown reporter '%s'. Available ones: plain, checkstyle\n", *reporterName)
-		return
+		os.Exit(1)
 	}
 
 	var err error
 	config, err = hint.NewConfig(*configFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-
-		return
+		os.Exit(1)
 	}
 
 	for _, filename := range flag.Args() {
@@ -56,10 +55,11 @@ func main() {
 	report, err := reporter.Flush()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-
-		return
+		os.Exit(1)
 	}
+
 	fmt.Println(report)
+	os.Exit(0)
 }
 
 func isDir(filename string) bool {
