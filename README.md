@@ -4,7 +4,9 @@ That is, basically gohint is the same golint plus configuration (plus some extra
 plus report generators, plus... :) )
 
 To install, run
-  go get github.com/elgris/hint/gohint
+```
+  go get github.com/hellosuper/gohint
+```
 
 Any other documentation you can check at [golint's README](https://github.com/golang/lint/blob/master/README).
 At the moment there is not so much difference, but I'm not sure what will happen in future :)

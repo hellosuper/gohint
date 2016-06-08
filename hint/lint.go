@@ -75,6 +75,7 @@ type file struct {
 func (f *file) isTest() bool { return strings.HasSuffix(f.filename, "_test.go") }
 
 func (f *file) lint() []Problem {
+
 	if f.config == nil {
 		f.config = NewDefaultConfig()
 	}
@@ -94,6 +95,7 @@ func (f *file) lint() []Problem {
 	if f.config.Exported {
 		f.lintExported(f.config.PackagePrefixNames)
 	}
+
 	if f.config.Names {
 		f.lintNames()
 	}
@@ -106,16 +108,34 @@ func (f *file) lint() []Problem {
 		f.lintElses()
 	}
 
-	f.lintRanges()
+	if f.config.Ranges {
+		f.lintRanges()
+	}
 
-	f.lintErrorf()
-	f.lintErrors()
-	f.lintErrorStrings()
-	f.lintReceiverNames()
-	f.lintIncDec()
+	if f.config.Errorf {
+		f.lintErrorf()
+	}
+
+	if f.config.Errors {
+		f.lintErrors()
+	}
+
+	if f.config.ErrorStrings {
+		f.lintErrorStrings()
+	}
+
+	if f.config.IncDec {
+		f.lintIncDec()
+	}
+
+	if f.config.ReceiverNames {
+		f.lintReceiverNames()
+	}
+
 	if f.config.MakeSlice {
 		f.lintMakeSlice()
 	}
+
 	if f.config.ErrorReturn {
 		f.lintErrorReturn()
 	}

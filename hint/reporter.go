@@ -10,15 +10,26 @@ import (
 type Reporter interface {
 	Collect(problems []Problem)
 	Flush() (string, error)
+	NumProblems() int
+}
+
+func (r *PlainReporter) NumProblems() int {
+	return r.numProblems
+}
+
+func (r *checkstyleReporter) NumProblems() int {
+	return r.numProblems
 }
 
 // PlainReporter defines reporter that output problems as plain text
 type PlainReporter struct {
-	buf bytes.Buffer
+	buf         bytes.Buffer
+	numProblems int
 }
 
 // Collect receives problems for further report generation
 func (r *PlainReporter) Collect(ps []Problem) {
+	r.numProblems += len(ps)
 	for _, p := range ps {
 		r.buf.WriteString(fmt.Sprintf("%s:%v: %s\n", p.File, p.Position, p.Text))
 	}
@@ -42,8 +53,9 @@ const (
 
 // checkstyleReporter produces reports in XML Checkstyle format
 type checkstyleReporter struct {
-	indent   bool // whether to produce pretty report with indent
-	problems map[string][]Problem
+	indent      bool // whether to produce pretty report with indent
+	problems    map[string][]Problem
+	numProblems int
 }
 
 type checkstyleReport struct {
@@ -72,6 +84,7 @@ func NewCheckstyleReporter(indent bool) *checkstyleReporter {
 
 // Collect receives problems for further report generation
 func (r *checkstyleReporter) Collect(ps []Problem) {
+	r.numProblems = len(ps)
 	for _, p := range ps {
 		if _, ok := r.problems[p.Position.Filename]; !ok {
 			// In most cases we will call this method once for the same file. Let's allocate memory for it

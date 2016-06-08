@@ -15,18 +15,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/elgris/hint"
+	"github.com/hellosuper/gohint/hint"
 )
 
 var reporterName = flag.String("reporter", "plain", "name of reported to generate ouput. Available: plain, checkstyle")
 var configFile = flag.String("config", "", "path to file with config. If empty or not provided, default config will be used")
-var config *hint.Config
-
-var reporter hint.Reporter
 
 func main() {
+
+	fmt.Printf("\n\n\t\t USING SUPER VERSION OF GOHINT: github.com/hellosuper/gohint \n\n")
+
 	flag.Parse()
 
+	var reporter hint.Reporter
 	switch *reporterName {
 	case "plain":
 		reporter = &hint.PlainReporter{}
@@ -37,8 +38,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	var err error
-	config, err = hint.NewConfig(*configFile)
+	// print the config file name and it's contents
+	fmt.Printf("\t\t USING CONFIG FILE=[%s] \n", *configFile)
+	data, err := ioutil.ReadFile(*configFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("contents=\n%s\n\n\n", string(data))
+
+	config, err := hint.NewConfig(*configFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -46,9 +55,9 @@ func main() {
 
 	for _, filename := range flag.Args() {
 		if isDir(filename) {
-			lintDir(filename)
+			lintDir(filename, config, reporter)
 		} else {
-			lintFile(filename)
+			lintFile(filename, config, reporter)
 		}
 	}
 
@@ -59,7 +68,7 @@ func main() {
 	}
 
 	fmt.Println(report)
-	os.Exit(0)
+	os.Exit(reporter.NumProblems())
 }
 
 func isDir(filename string) bool {
@@ -67,7 +76,7 @@ func isDir(filename string) bool {
 	return err == nil && fi.IsDir()
 }
 
-func lintFile(filename string) {
+func lintFile(filename string, config *hint.Config, reporter hint.Reporter) {
 	src, err := ioutil.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -83,10 +92,10 @@ func lintFile(filename string) {
 	reporter.Collect(ps)
 }
 
-func lintDir(dirname string) {
+func lintDir(dirname string, config *hint.Config, reporter hint.Reporter) {
 	filepath.Walk(dirname, func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() && strings.HasSuffix(path, ".go") {
-			lintFile(path)
+			lintFile(path, config, reporter)
 		}
 		return err
 	})

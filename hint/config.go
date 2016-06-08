@@ -58,6 +58,12 @@ type Config struct {
 	PackageUnderscore  bool `json:"package-underscore"`
 	NamedReturn        bool `json:"named-return"`
 	PackagePrefixNames bool `json:"package-prefix-names"`
+	Ranges             bool `json:"ranges"`
+	ReceiverNames      bool `json:"receiver-names"`
+	Errorf             bool `json:"errorf"`
+	Errors             bool `json:"errors"`
+	ErrorStrings       bool `json:"error-strings"`
+	IncDec             bool `json:"inc-dec"`
 
 	MinConfidence float64 `json:"min-confidence"`
 
@@ -77,26 +83,28 @@ type Config struct {
 // NewDefaultConfig creates linter config with predefined options
 func NewDefaultConfig() *Config {
 	return &Config{
-		Package:            true,
-		Imports:            true,
-		Names:              true,
-		Exported:           true,
-		VarDecls:           true,
-		Elses:              true,
-		MakeSlice:          true,
-		ErrorReturn:        true,
-		IgnoredReturn:      true,
-		PackageUnderscore:  true,
+		Package:            false,
+		Imports:            false,
+		Names:              false,
+		Exported:           false,
+		VarDecls:           false,
+		Elses:              false,
+		MakeSlice:          false,
+		ErrorReturn:        false,
+		IgnoredReturn:      false,
+		PackageUnderscore:  false,
 		NamedReturn:        false,
 		PackagePrefixNames: false,
+		Ranges:             false,
+		ReceiverNames:      false,
+		Errorf:             false,
+		Errors:             false,
+		ErrorStrings:       false,
+		IncDec:             false,
 
 		MinConfidence:    0.8,
 		Initialisms:      defaultCommonInitialisms,
 		BadReceiverNames: defaultBadReceiverNames,
-
-		//		IgnoreFiles:      []string{}, // TODO: for future use
-		//		IgnorePackages:   []string{}, // TODO: for future use
-		//		IgnoreTypes:      []string{}, // TODO: for future use
 	}
 }
 
@@ -130,19 +138,3 @@ func NewConfig(file string) (*Config, error) {
 
 	return c, nil
 }
-
-// TODO: for future use
-//func (c *Config) IsPackageIgnored(packageName string) (ok bool) {
-//	_, ok = c.ignorePackagesMap[packageName]
-//	return
-//}
-//
-//func (c *Config) IsFileIgnored(fileName string) (ok bool) {
-//	_, ok = c.ignoreFilesMap[fileName]
-//	return
-//}
-//
-//func (c *Config) IsTypeIgnored(typeName string) (ok bool) {
-//	_, ok = c.ignoreTypesMap[typeName]
-//	return
-//}
